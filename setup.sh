@@ -22,6 +22,17 @@ DRY_RUN=false
 PROJECT_DIR=""
 ACTION="global"
 
+# -----------------------------------------------------------------------------
+# Declarative Harness Registry
+# Format: "key|Display Name|Skills Directory Path|Extra Hook Name"
+# -----------------------------------------------------------------------------
+HARNESS_REGISTRY=(
+    "antigravity|Google Antigravity|$HOME/.gemini/config/skills|"
+    "claude|Claude Code|$HOME/.claude/skills|sync_claude_extra"
+    "opencode|OpenCode / Codex|$HOME/.config/opencode/skills|"
+    "global_agents|Global Agents Harness|$HOME/.agents/skills|"
+)
+
 usage() {
     echo -e "${BOLD}AI Skills Installer & Multi-Harness Synchronizer${NC}"
     echo ""
@@ -82,6 +93,22 @@ cleanup_broken_symlinks() {
     fi
 }
 
+sync_claude_extra() {
+    local claude_dir="$HOME/.claude"
+    local claude_md="$claude_dir/CLAUDE.md"
+    local src_claude_md="$SCRIPT_DIR/adapters/claude/global_claude.md"
+
+    if [ ! -f "$claude_md" ] && [ -f "$src_claude_md" ]; then
+        if [ "$DRY_RUN" = true ]; then
+            log_info "(Dry-run) Would create global Claude instructions at $claude_md"
+        else
+            mkdir -p "$claude_dir"
+            cp "$src_claude_md" "$claude_md"
+            log_success "Created global Claude instructions at $claude_md"
+        fi
+    fi
+}
+
 sync_harness_skills() {
     local harness_name="$1"
     local target_dir="$2"
@@ -94,6 +121,7 @@ sync_harness_skills() {
 
     for skill_dir in "$SKILLS_SRC"/*; do
         if [ -d "$skill_dir" ]; then
+            local skill_name
             skill_name="$(basename "$skill_dir")"
             link_item "$skill_dir" "$target_dir/$skill_name"
         fi
@@ -117,20 +145,18 @@ show_status() {
     echo ""
 
     echo -e "${BOLD}Harness Sync Destinations:${NC}"
-    local harnesses=(
-        "Google Antigravity|$HOME/.gemini/config/skills"
-        "Claude Code|$HOME/.claude/skills"
-        "OpenCode / Codex|$HOME/.config/opencode/skills"
-        "Global Agents Harness|$HOME/.agents/skills"
-    )
-
-    for h in "${harnesses[@]}"; do
-        IFS="|" read -r h_name h_path <<< "$h"
+    for h in "${HARNESS_REGISTRY[@]}"; do
+        IFS="|" read -r h_key h_name h_path h_hook <<< "$h"
         if [ -d "$h_path" ]; then
-            local linked_count=$(find "$h_path" -maxdepth 1 -type l | wc -l | tr -d ' ')
-            local dir_count=$(find "$h_path" -maxdepth 1 -type d ! -path "$h_path" | wc -l | tr -d ' ')
+            local linked_count
+            linked_count=$(find "$h_path" -maxdepth 1 -type l | wc -l | tr -d ' ')
+            local dir_count
+            dir_count=$(find "$h_path" -maxdepth 1 -type d ! -path "$h_path" | wc -l | tr -d ' ')
+            local broken_count
+            broken_count=$(find "$h_path" -maxdepth 1 -type l ! -exec test -e {} \; -print 2>/dev/null | wc -l | tr -d ' ')
+            
             echo -e "  • ${BOLD}$h_name${NC}: $h_path"
-            echo -e "    └─ Symlinked skills: ${GREEN}$linked_count${NC} | Standalone directories: ${YELLOW}$dir_count${NC}"
+            echo -e "    └─ Symlinked: ${GREEN}$linked_count${NC} | Standalone: ${YELLOW}$dir_count${NC} | Broken: ${RED}$broken_count${NC}"
         else
             echo -e "  • ${BOLD}$h_name${NC}: ${RED}Not configured / missing folder${NC} ($h_path)"
         fi
@@ -149,7 +175,8 @@ import_new_skills() {
 
     for item in "$HOME/.agents/skills"/*; do
         if [ -d "$item" ] && [ ! -L "$item" ]; then
-            local skill_name="$(basename "$item")"
+            local skill_name
+            skill_name="$(basename "$item")"
             if [ ! -d "$SKILLS_SRC/$skill_name" ]; then
                 echo -e "Found unmanaged skill: ${YELLOW}$skill_name${NC}"
                 if [ "$DRY_RUN" = false ]; then
@@ -186,30 +213,20 @@ if [ "$ACTION" = "import" ]; then
 fi
 
 if [ "$ACTION" = "global" ]; then
-    # 1. Antigravity (~/.gemini/config/skills)
-    sync_harness_skills "Antigravity (Google AGY)" "$HOME/.gemini/config/skills"
-
-    # 2. Claude Code (~/.claude/skills)
-    sync_harness_skills "Claude Code" "$HOME/.claude/skills"
-    CLAUDE_DIR="$HOME/.claude"
-    CLAUDE_MD="$CLAUDE_DIR/CLAUDE.md"
-    if [ ! -f "$CLAUDE_MD" ] && [ "$DRY_RUN" = false ] && [ -f "$SCRIPT_DIR/adapters/claude/global_claude.md" ]; then
-        cp "$SCRIPT_DIR/adapters/claude/global_claude.md" "$CLAUDE_MD"
-        log_success "Created global Claude instructions at $CLAUDE_MD"
-    fi
-
-    # 3. OpenCode / Codex (~/.config/opencode/skills)
-    sync_harness_skills "OpenCode / Codex" "$HOME/.config/opencode/skills"
-
-    # 4. Global Agents Harness (~/.agents/skills)
-    sync_harness_skills "Global Agents Harness" "$HOME/.agents/skills"
+    for h in "${HARNESS_REGISTRY[@]}"; do
+        IFS="|" read -r h_key h_name h_path h_hook <<< "$h"
+        sync_harness_skills "$h_name" "$h_path"
+        if [ -n "$h_hook" ] && declare -f "$h_hook" > /dev/null; then
+            "$h_hook"
+        fi
+    done
 
     echo ""
     log_success "All agent harnesses successfully synchronized with ~/ai-skills repository!"
     echo -e "Skills are now available globally in Antigravity, Claude Code, OpenCode, and ~/.agents."
 fi
 
-# 5. Optional Project-Level Setup
+# Optional Project-Level Setup
 if [ "$ACTION" = "project" ] && [ -n "$PROJECT_DIR" ]; then
     log_info "Configuring project repository at: $PROJECT_DIR"
     TARGET_AGENTS="$PROJECT_DIR/.agents"
