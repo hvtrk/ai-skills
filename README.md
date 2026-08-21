@@ -1,83 +1,101 @@
-# AI Engineering Framework (ai-skill-rules)
+# AI Engineering Skills Hub (`ai-skills`)
 
-A configuration framework providing rules, project context, and playbooks to guide AI agents in assisted software engineering workflows. 
+A centralized, portable, and ultra-lean AI skills repository for modern software engineering workflows.
 
-This repository serves as the "brain" for an AI assistant, ensuring that all automated engineering tasks are consistent, context-aware, and aligned with your project's architectural standards.
+Designed for high performance, zero context bloat, and universal compatibility across **Antigravity**, **Claude Code**, **OpenCode / Codex**, and **Cursor / Windsurf**.
 
-## 🚀 Use Cases
+---
 
-- **Project Bootstrapping**: Safely initialize new software projects and boilerplate using predefined framework knowledge.
-- **AI-Assisted Feature Development**: Agents follow project-specific architecture and coding conventions to implement new features consistently, without re-inventing the wheel.
-- **Automated Code Reviews**: Validate implementations and pull requests against predefined engineering principles, preventing architectural drift and technical debt.
-- **Onboarding & Knowledge Retention**: Maintain project baseline and tech stack details so any new AI session (or human developer) starts with complete, up-to-date context.
-- **Consistent Refactoring**: Apply minimal, focused changes that preserve existing behavior based on strict repository rules.
+## ⚡ Key Highlights
 
-## 🧠 How It Works
+- **Zero Context Bloat**: Universal operating principles are kept ultra-compact (`rules/core.md` < 40 lines). All playbooks and specialized guides are packaged as on-demand skills (`SKILL.md`) that load dynamically only when triggered.
+- **Zero-Copy Setup**: No more copy-pasting `.agents/` directories into every project repository. Global symlinks enable all agent harnesses to access your skills from anywhere.
+- **Cross-Agent Compatible**: Works out-of-the-box across Google Antigravity, Anthropic Claude Code, OpenAI Codex / OpenCode, and Cursor.
+- **1-Command Portability**: Clone once on any new system and run `./setup.sh` to instantly activate all skills.
 
-At the beginning of every session, the AI agent indexes this repository to understand the rules and context before executing any tasks.
+---
 
-```mermaid
-graph TD
-    User([User Request]) --> AI[AI Engineering Agent]
-    
-    subgraph "AI Configuration (.agents/)"
-        Rules[rules/ <br> Permanent Principles]
-        Project[knowledge/ <br> Project & Framework Context]
-        Playbooks[playbooks/ <br> Task Workflows]
-    end
-    
-    AI -.->|1. Load Rules| Rules
-    AI -.->|2. Load Context| Project
-    AI -.->|3. Select Playbook| Playbooks
-    
-    AI --> Action{Determine Action}
-    Action -->|Bootstrap| Boot[Generate New Project]
-    Action -->|Code Review| Review[Review PRs/Code]
-    Action -->|Feature Dev| Dev[Implement Features]
-    Action -->|Refactoring| Refactor[Preserve Architecture]
-    
-    Review --> Repo[(Target Repository)]
-    Dev --> Repo
-    Refactor --> Repo
-    Boot --> Repo
-    
-    classDef config fill:#f9f9f9,stroke:#333,stroke-width:2px;
-    class Rules,Project,Playbooks config;
+## 🚀 Quickstart
+
+### 1. New Machine Setup
+```bash
+# Clone the repository
+git clone git@github.com:hvtrk/ai-skill-rules.git ~/ai-skills
+
+# Run the installer
+cd ~/ai-skills
+chmod +x setup.sh
+./setup.sh
 ```
 
-## 📂 Repository Structure
-
-The framework is organized into specific directories within `.agents/` to separate permanent rules from project-specific context and dynamic workflows.
-
-```mermaid
-graph LR
-    A[.agents/] --> B[rules/]
-    A --> C[knowledge/]
-    A --> D[playbooks/]
-    A --> E[framework/]
-    
-    B --> B1(engineering_principles.md)
-    B --> B2(implementation_rules.md)
-    
-    C --> C1(architecture.md)
-    C --> C2(api_contracts.md)
-    C --> C3(tech_stack.md)
-    C --> C4(frameworks/)
-    
-    D --> D1(feature_development.md)
-    D --> D2(code_review.md)
-    D --> D3(project_bootstrap.md)
+### 2. Optional: Link into a Specific Project
+If a specific repository requires local `.agents/skills` or `.cursorrules`:
+```bash
+cd ~/ai-skills
+./setup.sh --project /path/to/my-project
 ```
 
-### Directory Details
-- **`rules/`**: Permanent engineering principles and behavioral guidelines that the AI must *always* follow (e.g., "Minimize Change", "Preserve Existing Behavior").
-- **`knowledge/`**: Contains both Project-specific facts (architecture, API contracts, etc.) and Framework Knowledge for supported technologies when bootstrapping new projects.
-- **`playbooks/`**: Task-specific step-by-step workflows (e.g., how to bootstrap a project, how to develop a feature).
-- **`framework/`**: Core definitions and changelogs for the AI configuration itself.
+---
 
-## 🛠 Getting Started
+## 📁 Repository Structure
 
-1. **Clone the repository** (or add the `.agents` folder to your existing codebase).
-2. **Update the `knowledge/`** folder with your project's specific architecture, tech stack, and API contracts.
-3. **Engage your AI Agent** and instruct it to "Read the `.agents/AGENTS.md` file to initialize your context."
-4. **Start building!** The agent will now follow the customized playbooks and rules defined in this repository.
+```text
+~/ai-skills/
+├── README.md                  # Documentation and setup guide
+├── setup.sh                   # Automated multi-agent symlinker & installer
+├── rules/
+│   └── core.md                # Ultra-compact universal engineering rules (<40 lines)
+├── skills/
+│   ├── fullstack-feature/     # End-to-end FastAPI + Next.js feature scaffolding
+│   ├── fastapi-backend/       # Layered API: public/protected/service/repository
+│   ├── nextjs-frontend/       # React 19, App Router, Tailwind v4, TanStack Query
+│   ├── db-migration-schema/   # SQLModel schemas, PostgreSQL migrations & indexing
+│   ├── codebase-audit-pre-push/# Pre-push git cleaner, secret scanner, and hygiene
+│   ├── performance-optimizer/ # Profiling, database indexes, API latency, memoization
+│   ├── systematic-debugging/  # 6-phase debugging loop & common pattern fixes
+│   ├── improve-codebase-architecture/# Architectural friction scanner & seam creation
+│   ├── redesign-existing-projects/   # UI/UX aesthetic audit & visual restyling
+│   ├── code-review/           # Architecture consistency & PR review playbook
+│   ├── project-bootstrap/     # Greenfield repository bootstrapping
+│   ├── architecture-analysis/ # Codebase indexing & dependency mapping
+│   └── skill-creator/         # Meta-skill for authoring and registering skills
+└── adapters/
+    ├── claude/                # Claude Code integration templates
+    ├── antigravity/           # Antigravity config mapping
+    └── cursor/                # Cursor IDE / Windsurf rules fallback
+```
+
+---
+
+## 🛠 Available Skills Suite (13 Skills)
+
+| Skill | Trigger / Command | Domain & Description |
+| :--- | :--- | :--- |
+| **`fullstack-feature`** | `/fullstack-feature` | Scaffolds end-to-end feature connecting FastAPI backend with Next.js frontend UI & TanStack Query. |
+| **`fastapi-backend`** | `/fastapi-backend` | Generates layered FastAPI endpoints (`public.py`, `protected.py`, `service.py`, `repository.py`). |
+| **`nextjs-frontend`** | `/nextjs-frontend` | Builds React 19 / Next.js App Router components with Tailwind v4 and Motion animations. |
+| **`db-migration-schema`** | `/db-migration-schema` | Guides SQLModel schema creation, PostgreSQL relationships, and safe migrations. |
+| **`codebase-audit-pre-push`** | `/codebase-audit-pre-push` | Sanitizes repo, removes junk files, checks secret leaks, and verifies pre-push git hygiene. |
+| **`performance-optimizer`** | `/performance-optimizer` | Measures and eliminates bottlenecks in DB queries, API latency, and frontend rendering. |
+| **`systematic-debugging`** | `/debug`, `/bug-hunter`, `/diagnose` | Disciplined 6-phase root-cause debugging loop with fast feedback loop creation. |
+| **`improve-codebase-architecture`**| `/improve-codebase-architecture` | Deepens shallow modules, eliminates architectural friction, and establishes testable seams. |
+| **`redesign-existing-projects`** | `/redesign-existing-projects` | Overhauls and modernizes UI styling, typography, color palettes, and micro-interactions. |
+| **`code-review`** | `/code-review` | Thorough review for architectural consistency, security, and release readiness. |
+| **`project-bootstrap`** | `/project-bootstrap` | Initializes a clean full-stack repository with boilerplate architecture. |
+| **`architecture-analysis`** | `/architecture-analysis` | Analyzes codebase structure, data flows, and creates architecture documentation. |
+| **`skill-creator`** | `/create-skill`, `/skill-creator` | Authors, converts, and automatically registers new on-demand skills across agent harnesses. |
+
+---
+
+## ➕ Adding or Improving Skills
+
+To add a new skill:
+1. Use `/create-skill` or create a directory under `skills/<new-skill-name>/`.
+2. Add a `SKILL.md` file with standard YAML frontmatter (`name`, `description`).
+3. Run `./setup.sh` to update symlinks across all agent harnesses.
+4. Commit and push your changes to GitHub (`git push origin master`).
+
+---
+
+## 📄 License
+MIT License. Maintained by Rahul (@hvtrk).

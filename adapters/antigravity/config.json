@@ -1,0 +1,5 @@
+{
+  "skills_directory": "~/.gemini/config/skills",
+  "rules_directory": "~/.gemini/config/rules",
+  "auto_discovery": true
+}

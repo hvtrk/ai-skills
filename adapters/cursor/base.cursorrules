@@ -1,0 +1,6 @@
+# Cursor Engineering Rules
+
+- Strictly follow evidence-first principles and minimal change discipline.
+- Do not perform opportunistic refactoring or modify unrelated files.
+- Adhere to the established repository architecture and layered patterns.
+- Follow core rules in ~/ai-skills/rules/core.md.
