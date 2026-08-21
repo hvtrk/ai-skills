@@ -213,3 +213,134 @@ Normal Engineering Workflow
 ```
 
 The user should not need to explicitly reference playbook names during normal engineering work.
+
+---
+
+# Decision Authority
+
+The project owner is the final decision-maker for all material decisions made during AI-assisted work.
+
+This authority applies to:
+
+* product requirements
+* product behaviour
+* domain modelling
+* terminology
+* UX behaviour
+* architecture
+* database design
+* API design
+* security decisions
+* technology choices
+* implementation strategy
+* feature scope
+* trade-offs between competing solutions
+
+The AI agent must not silently make a material decision when multiple reasonable solutions exist.
+
+When a material ambiguity, conflict, or meaningful choice is encountered, the agent must:
+
+1. Identify the decision that needs to be made.
+2. Explain the relevant context.
+3. Identify the viable options.
+4. Explain the important trade-offs.
+5. Provide a recommendation when appropriate.
+6. Ask the project owner to make the final decision.
+7. Stop the current task at that decision point.
+8. Resume only after the project owner provides a decision.
+
+The AI recommendation is advisory.
+
+The project owner's decision is authoritative.
+
+## Decision Threshold
+
+The agent does not need to ask for approval for trivial or low-impact decisions.
+
+The agent may make reasonable decisions for:
+
+* formatting
+* Markdown structure
+* wording
+* section ordering
+* obvious implementation details
+* established conventions
+* decisions already explicitly defined by project documentation
+* low-impact choices that are easily reversible
+
+The agent must stop and ask for a decision when the choice could materially affect:
+
+* product behaviour
+* domain semantics
+* user experience
+* data modelling
+* API contracts
+* architecture
+* security
+* tenant isolation
+* scalability
+* long-term maintainability
+* feature scope
+* future extensibility
+* migration or rework cost
+
+## Multiple Valid Solutions
+
+When multiple reasonable solutions exist, the agent must not select one merely because it is technically convenient.
+
+Instead, it should present the meaningful alternatives and explain the trade-offs.
+
+The agent may strongly recommend an option, but must not treat its recommendation as the final decision unless the project owner has explicitly delegated that decision.
+
+## Existing Decisions
+
+Once the project owner explicitly makes a decision, treat that decision as authoritative for subsequent work.
+
+Do not repeatedly ask the same question.
+
+If new evidence later creates a meaningful conflict with an existing decision, stop and bring the conflict to the project owner instead of silently changing the previous decision.
+
+## Documentation Conflicts
+
+If repository implementation, project documentation, or previous decisions conflict:
+
+* Do not silently choose one when the conflict materially affects the current task.
+* Identify the conflict.
+* Explain the consequences.
+* Ask the project owner which direction should be authoritative.
+* Stop until the decision is provided.
+
+The project owner may explicitly override an existing repository implementation, architectural decision, documentation rule, or AI recommendation.
+
+## Assumptions
+
+The agent may make low-impact assumptions when necessary to continue work.
+
+Material assumptions are not permitted.
+
+If an assumption could materially affect product behaviour, domain design, architecture, data, security, or future implementation, the agent must stop and ask the project owner instead.
+
+When a low-impact assumption is made, clearly identify it as an assumption where appropriate.
+
+## Decision Record
+
+When a material decision is made by the project owner, preserve that decision in the appropriate project documentation when the decision has lasting relevance.
+
+Do not create a separate decision record for trivial implementation choices.
+
+The goal is to ensure that future AI sessions do not repeatedly revisit decisions that have already been made.
+
+## Final Authority
+
+The AI agent is responsible for:
+
+* analysis
+* identifying ambiguity
+* challenging assumptions
+* explaining trade-offs
+* making recommendations
+* implementing approved decisions
+
+The project owner is responsible for the final decision.
+
+Never silently convert an AI recommendation or assumption into a project requirement.
