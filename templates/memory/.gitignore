@@ -1,0 +1,4 @@
+# Optional: ignore project memory if in a private/client repository
+# To use: copy this to .gitignore in your project root, or add .memory/ to .gitignore
+.memory/
+

@@ -9,3 +9,4 @@ Permanent operating principles across all AI agent interactions. Prioritize corr
 5. **Reuse Before Create**: Search for existing components, services, utilities, and helpers before creating new ones.
 6. **Error & Edge Handling**: Handle nulls, empty states, network/db errors, and invalid inputs explicitly. No silent failures.
 7. **Security & Quality**: Default to secure practices (no hardcoded secrets, validated inputs, parameterized queries). Correctness always precedes speed.
+8. **Two-Tier Memory Protocol**: Follow universal conventions in `~/.agents/memory/conventions.md`. When working in a project with a `.memory/` directory, read `.memory/INDEX.md` and load topic files (`domain.md`, `architecture.md`, `gotchas.md`, `session-handoff.md`) lazily only when relevant. Update `.memory/` when architectural patterns change or non-obvious gotchas are discovered.

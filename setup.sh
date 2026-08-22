@@ -8,6 +8,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$SCRIPT_DIR/skills"
 RULES_SRC="$SCRIPT_DIR/rules/core.md"
+TEMPLATES_SRC="$SCRIPT_DIR/templates"
+GLOBAL_MEMORY_DIR="$HOME/.agents/memory"
 
 # Colors for terminal output
 BOLD="\033[1m"
@@ -34,16 +36,17 @@ HARNESS_REGISTRY=(
 )
 
 usage() {
-    echo -e "${BOLD}AI Skills Installer & Multi-Harness Synchronizer${NC}"
+    echo -e "${BOLD}AI Skills Installer & Multi-Harness Synchronizer (v3.0)${NC}"
     echo ""
     echo "Usage:"
     echo "  ./setup.sh [options]"
     echo ""
     echo "Options:"
-    echo "  --global              Install/symlink skills globally across all agent harnesses (default)"
+    echo "  --global              Install/symlink skills & seed global memory across all agent harnesses (default)"
     echo "  --project <dir>       Link skills & rules directly into a specific project repository"
+    echo "  --memory-init <dir>   Initialize workspace .memory/ hierarchy in a project (idempotent)"
     echo "  --import              Import newly installed skills from ~/.agents/skills into ~/ai-skills"
-    echo "  --status              Show sync status across all agent harnesses"
+    echo "  --status              Show sync status across all agent harnesses & global memory"
     echo "  --dry-run             Show what links and directories would be created without making changes"
     echo "  -h, --help            Show this help message"
     echo ""
@@ -58,6 +61,7 @@ while [[ "$#" -gt 0 ]]; do
         --status) ACTION="status" ;;
         --dry-run) DRY_RUN=true ;;
         --project) ACTION="project"; PROJECT_DIR="$2"; shift ;;
+        --memory-init) ACTION="memory_init"; PROJECT_DIR="$2"; shift ;;
         -h|--help) usage ;;
         *) echo -e "${RED}Unknown option: $1${NC}"; usage ;;
     esac
@@ -91,6 +95,96 @@ cleanup_broken_symlinks() {
     if [ -d "$target_dir" ]; then
         find "$target_dir" -type l ! -exec test -e {} \; -delete 2>/dev/null || true
     fi
+}
+
+init_global_memory() {
+    log_info "Verifying global memory at $GLOBAL_MEMORY_DIR..."
+    if [ "$DRY_RUN" = true ]; then
+        log_info "(Dry-run) Would ensure $GLOBAL_MEMORY_DIR exists with user-profile.md & conventions.md"
+        return
+    fi
+
+    mkdir -p "$GLOBAL_MEMORY_DIR"
+    
+    if [ ! -f "$GLOBAL_MEMORY_DIR/user-profile.md" ]; then
+        cat << 'EOF' > "$GLOBAL_MEMORY_DIR/user-profile.md"
+# Global Developer Profile
+
+Machine-wide preferences, developer identity, and operating environment.
+
+## Environment & Tooling
+- **OS**: macOS (zsh shell)
+- **Editor / Harnesses**: Antigravity, Claude Code, Cursor, OpenCode/Codex
+- **Package Managers**: pnpm / npm / pip / uv
+- **Git**: Branch-first development (`v_X` for active dev, PR/merge into `master`)
+
+## Workflow Preferences
+- Prioritize minimal invasive changes.
+- Avoid unnecessary external dependencies when standard library or existing helpers suffice.
+- Output clean, structured markdown with concise explanations.
+EOF
+        log_success "Created global developer profile at $GLOBAL_MEMORY_DIR/user-profile.md"
+    fi
+
+    if [ ! -f "$GLOBAL_MEMORY_DIR/conventions.md" ]; then
+        cat << 'EOF' > "$GLOBAL_MEMORY_DIR/conventions.md"
+# Global Engineering Conventions
+
+Universal coding principles and quality standards across all projects.
+
+## Architecture & Code Design
+1. **Layered Separation**: Strictly separate routing/transport, business logic/services, data access/repositories, and schema validation.
+2. **Explicit Interfaces**: Use strict typing (TypeScript `strict: true`, Python type annotations with Pydantic/SQLModel).
+3. **Evidence-First Implementation**: Inspect existing patterns before proposing new abstractions or third-party dependencies.
+
+## Error Handling & Reliability
+1. **Fail Explicitly**: Never swallow exceptions silently. Log meaningful contextual error messages.
+2. **Boundary Validation**: Validate inputs at system boundaries (API endpoints, webhook receivers, CLI inputs).
+
+## Code Style & Formatting
+1. Keep functions focused and single-purpose.
+2. Avoid unnecessary boilerplate and dead comments.
+3. Self-documenting naming conventions over verbose comments.
+EOF
+        log_success "Created global conventions at $GLOBAL_MEMORY_DIR/conventions.md"
+    fi
+}
+
+init_project_memory() {
+    local target_dir="$1"
+    if [ -z "$target_dir" ]; then
+        echo -e "${RED}Error: Project directory not specified. Use --memory-init <project-dir>${NC}"
+        exit 1
+    fi
+
+    local memory_dir="$target_dir/.memory"
+    log_info "Initializing project memory in: $memory_dir"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "(Dry-run) Would initialize .memory structure in $target_dir"
+        return
+    fi
+
+    mkdir -p "$memory_dir/archive"
+
+    local template_dir="$TEMPLATES_SRC/memory"
+    if [ -d "$template_dir" ]; then
+        for tpl in "$template_dir"/*; do
+            local filename
+            filename="$(basename "$tpl")"
+            if [ "$filename" != ".gitignore" ]; then
+                if [ ! -f "$memory_dir/$filename" ]; then
+                    cp "$tpl" "$memory_dir/$filename"
+                    log_success "Created $memory_dir/$filename"
+                else
+                    log_info "Preserved existing $memory_dir/$filename"
+                fi
+            fi
+        done
+    fi
+
+    log_success "Project memory successfully initialized at $memory_dir"
+    echo -e "Level-0 Router: ${CYAN}$memory_dir/INDEX.md${NC}"
 }
 
 sync_claude_extra() {
@@ -130,9 +224,22 @@ sync_harness_skills() {
 
 show_status() {
     echo -e "${BOLD}====================================================${NC}"
-    echo -e "${BOLD}         AI Skills Repository Status                ${NC}"
+    echo -e "${BOLD}         AI Skills Repository Status (v3.0)         ${NC}"
     echo -e "${BOLD}====================================================${NC}"
     echo ""
+    echo -e "${BOLD}Global Memory (~/.agents/memory/):${NC}"
+    if [ -d "$GLOBAL_MEMORY_DIR" ]; then
+        local user_p="missing"
+        local conv_p="missing"
+        [ -f "$GLOBAL_MEMORY_DIR/user-profile.md" ] && user_p="${GREEN}active${NC}"
+        [ -f "$GLOBAL_MEMORY_DIR/conventions.md" ] && conv_p="${GREEN}active${NC}"
+        echo -e "  • user-profile.md: $user_p"
+        echo -e "  • conventions.md:  $conv_p"
+    else
+        echo -e "  • ${RED}Not initialized${NC}"
+    fi
+    echo ""
+
     echo -e "${BOLD}Central Skills in ~/ai-skills/skills:${NC}"
     local count=0
     for skill_dir in "$SKILLS_SRC"/*; do
@@ -212,7 +319,14 @@ if [ "$ACTION" = "import" ]; then
     exit 0
 fi
 
+if [ "$ACTION" = "memory_init" ]; then
+    init_project_memory "$PROJECT_DIR"
+    exit 0
+fi
+
 if [ "$ACTION" = "global" ]; then
+    init_global_memory
+
     for h in "${HARNESS_REGISTRY[@]}"; do
         IFS="|" read -r h_key h_name h_path h_hook <<< "$h"
         sync_harness_skills "$h_name" "$h_path"
@@ -223,7 +337,7 @@ if [ "$ACTION" = "global" ]; then
 
     echo ""
     log_success "All agent harnesses successfully synchronized with ~/ai-skills repository!"
-    echo -e "Skills are now available globally in Antigravity, Claude Code, OpenCode, and ~/.agents."
+    echo -e "Skills and two-tier memory protocol are now active across Antigravity, Claude Code, OpenCode, and ~/.agents."
 fi
 
 # Optional Project-Level Setup
@@ -241,5 +355,8 @@ if [ "$ACTION" = "project" ] && [ -n "$PROJECT_DIR" ]; then
     if [ -f "$SCRIPT_DIR/adapters/cursor/base.cursorrules" ]; then
         link_item "$SCRIPT_DIR/adapters/cursor/base.cursorrules" "$TARGET_CURSOR"
     fi
-    log_success "Project-level links configured for: $PROJECT_DIR"
+
+    init_project_memory "$PROJECT_DIR"
+
+    log_success "Project-level links and memory configured for: $PROJECT_DIR"
 fi

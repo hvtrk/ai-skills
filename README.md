@@ -1,7 +1,7 @@
-# AI Engineering Skills Hub (`ai-skills`) — v2.0
+# AI Engineering Skills Hub (`ai-skills`) — v3.0
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/hvtrk/ai-skill-rules)
-[![Architecture](https://img.shields.io/badge/architecture-on--demand--skills-green.svg)](https://github.com/hvtrk/ai-skill-rules)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/hvtrk/ai-skill-rules)
+[![Architecture](https://img.shields.io/badge/architecture-two--tier--memory-green.svg)](https://github.com/hvtrk/ai-skill-rules)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A centralized, portable, and ultra-lean AI skills repository for modern software engineering workflows.
@@ -10,145 +10,143 @@ Designed for high performance, zero context bloat, and universal compatibility a
 
 ---
 
-## ⚡ What's New in v2.0
+## ⚡ What's New in v3.0
 
-| Feature | v1 (Legacy) | v2.0 (Current) |
+| Feature | v2.0 | v3.0 (Current) |
 | :--- | :--- | :--- |
-| **Context Footprint** | Monolithic eager-loading of all rules & playbooks (~10k+ tokens on startup) | **Ultra-lean base rules (<40 lines)** + on-demand skill discovery (~200 tokens) |
-| **Skill Format** | Flat Markdown playbooks with repeated principles | **Standardized `SKILL.md`** with semantic discovery & metadata headers |
-| **Multi-Agent Setup** | Manual copy-pasting of `.agents/` folder per project | **1-Command multi-harness installer (`setup.sh`)** for Antigravity, Claude, Codex, Cursor, and `~/.agents` |
-| **Curated Suite** | Overlapping playbooks and ad-hoc guidelines | **28 dedicated, non-overlapping skills** covering architecture, backend, frontend, databases, TDD, and agent development |
-| **Skill Authoring & Sync** | Manual file creation | **Built-in `skill-creator` & `skill-harness-sync`** for instant npx skill imports & multi-agent distribution |
+| **Memory Architecture** | Global skills only (stateless across sessions) | **Two-Tier Persistent Memory**: Machine-wide conventions (`~/.agents/memory/`) + isolated workspace memory (`.memory/`) |
+| **Context Management** | Full repo inspection per task | **Hierarchical Level-0 Router (`.memory/INDEX.md` <40 lines)**; topic files loaded on-demand |
+| **Session Continuity** | Chat transcript dependent | **Dedicated ephemeral `session-handoff.md`** with automatic graduation to permanent records upon task completion |
+| **Project Isolation** | No local memory standard | **Strict project workspace boundary**: client project memory stays isolated, with optional git tracking or `.gitignore` |
+| **Compaction & Anti-Drift** | Manual | **Append-and-replace compaction** with cold storage `.memory/archive/` (prevents hallucinating on obsolete notes) |
+| **Curated Suite** | 28 skills | **29 skills** including the new `project-memory` skill |
 
 ---
 
-## 🧠 Architecture Overview
+## 🧠 System Architecture
 
 ```mermaid
-graph TD
-    subgraph CentralHub ["Central Hub (~/ai-skills)"]
-        Rules["rules/core.md<br>(Ultra-lean permanent rules <40 lines)"]
-        Skills["skills/<br>28 On-Demand Modular Skills (SKILL.md)"]
-        Installer["setup.sh<br>(Multi-Agent Symlinker & Sync)"]
+flowchart TD
+    subgraph GlobalTier["Global Tier (Machine-Wide & Agnostic)"]
+        GP["~/.agents/memory/user-profile.md<br/>(Developer Profile, Tools, OS)"]
+        GC["~/.agents/memory/conventions.md<br/>(Universal Coding Ethos & Styling)"]
+        GS["~/ai-skills/skills/<br/>(29 Curated On-Demand Skills)"]
     end
 
-    Installer -->|Symlinks| AG["Antigravity (~/.gemini/config/skills/)"]
-    Installer -->|Symlinks| CC["Claude Code (~/.claude/skills/ & CLAUDE.md)"]
-    Installer -->|Symlinks| OC["OpenCode / Codex (~/.config/opencode/skills/)"]
-    Installer -->|Symlinks| GA["Global Agents (~/.agents/skills/)"]
-    Installer -->|Symlinks| CR["Cursor / Windsurf (.cursorrules)"]
+    subgraph Harnesses["AI Agent Harnesses"]
+        AG["Antigravity (~/.gemini/config/)"]
+        CC["Claude Code (~/.claude/)"]
+        OC["OpenCode / Codex (~/.config/opencode/)"]
+        CR["Cursor / Windsurf (.cursorrules)"]
+    end
 
-    AG --> Repos["All Working Project Repositories"]
-    CC --> Repos
-    OC --> Repos
-    GA --> Repos
-    CR --> Repos
+    subgraph ProjectWorkspace["Project Workspace (<project-root>)"]
+        IDX[".memory/INDEX.md<br/>(Fast Level-0 Router <40 lines)"]
+        DOM[".memory/domain.md<br/>(Domain Concepts & Glossary)"]
+        ARC[".memory/architecture.md<br/>(Tech Stack & ADR Links)"]
+        GOT[".memory/gotchas.md<br/>(Resolved Traps & Environment Quirks)"]
+        SES[".memory/session-handoff.md<br/>(Ephemeral Task State)"]
+        ACH[".memory/archive/...<br/>(Cold Storage for Superseded Records)"]
+    end
 
-    classDef central fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#fff;
+    GlobalTier --> Harnesses
+    Harnesses -->|1. Reads Index| IDX
+    IDX -.->|2. Loads ONLY if relevant| DOM
+    IDX -.->|2. Loads ONLY if relevant| ARC
+    IDX -.->|2. Loads ONLY if relevant| GOT
+    IDX -.->|2. Loads if resuming| SES
+
+    classDef global fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#fff;
     classDef harness fill:#0f172a,stroke:#818cf8,stroke-width:2px,color:#fff;
-    class CentralHub,Rules,Skills,Installer central;
-    class AG,CC,OC,GA,CR harness;
+    classDef project fill:#1e1e38,stroke:#10b981,stroke-width:2px,color:#fff;
+    class GP,GC,GS global;
+    class AG,CC,OC,CR harness;
+    class IDX,DOM,ARC,GOT,SES,ACH project;
 ```
 
 ---
 
 ## 🚀 Quickstart
 
-### 1. Global Multi-Agent Installation (1 Command)
+### 1. Global Installation (1 Command)
 ```bash
 # Clone the repository
 git clone git@github.com:hvtrk/ai-skill-rules.git ~/ai-skills
 
-# Run the installer
+# Run the installer (seeds ~/.agents/memory and links all harnesses)
 cd ~/ai-skills
 chmod +x setup.sh
 ./setup.sh --global
 ```
-*All 28 skills and rules immediately activate across all your agent harnesses (Antigravity, Claude Code, OpenCode, and `~/.agents`).*
+*Skills and the global memory tier immediately activate across Antigravity, Claude Code, OpenCode, and `~/.agents`.*
 
-### 2. Link into a Specific Project Repository
-If a specific repository requires local `.agents/skills`, `.agents/rules.md`, or `.cursorrules`:
+### 2. Initialize Memory in a Project Workspace
+To bootstrap the `.memory/` structure into any project:
 ```bash
-# Run from within ~/ai-skills:
-./setup.sh --project /path/to/repo
+# From ~/ai-skills:
+./setup.sh --memory-init /path/to/my-project
 
-# Or directly using the absolute path from anywhere:
-~/path/to/repo/ai-skills/setup.sh --project /path/to/repo
+# Or from anywhere via project flag:
+~/ai-skills/setup.sh --project /path/to/my-project
 ```
+*(Idempotent: If `.memory/` already exists, existing documentation is safely preserved.)*
 
-### 3. Check Sync Status
-To verify all symlinks across all agent harnesses:
+### 3. Check Sync & Memory Status
 ```bash
 ~/ai-skills/setup.sh --status
 ```
 
 ### 4. Importing New Skills from `npx skills add`
-When you install third-party skills using `npx skills add <source> -g`, import and distribute them into your version-controlled hub:
 ```bash
-# Import new unmanaged skills from ~/.agents/skills
 ~/ai-skills/setup.sh --import
-
-# Synchronize globally across all harnesses
 ~/ai-skills/setup.sh --global
 ```
 
-### 5. Dry-Run Mode
-To preview symlinks without modifying the filesystem:
-```bash
-./setup.sh --dry-run
-```
-
 ---
 
-## 📁 Repository Layout
+## 🗂 Memory Management & Usage Guide
+
+The memory architecture solves context window exhaustion and cross-project pollution using a **Hierarchical (Option C)** retrieval model.
+
+### 1. The Two Tiers
+
+| Tier | Path | Purpose | Git Tracking |
+| :--- | :--- | :--- | :--- |
+| **Global Memory** | `~/.agents/memory/` | Machine-wide developer profile (`user-profile.md`) and universal coding conventions (`conventions.md`). | Machine-local (agnostic) |
+| **Project Memory** | `<project-root>/.memory/` | Workspace-specific domain terms, tech stack patterns, gotchas, and session handoffs. | Committed with repo (personal) OR gitignored (client) |
+
+### 2. File Taxonomy in `<project-root>/.memory/`
 
 ```text
-~/ai-skills/
-├── README.md                  # Comprehensive v2 documentation
-├── setup.sh                   # Multi-agent symlinker, importer & synchronizer
-├── rules/
-│   └── core.md                # Ultra-compact universal engineering rules (<40 lines)
-├── skills/                    # 28 Curated Modular Skills (SKILL.md)
-│   ├── fullstack-feature/     # End-to-end FastAPI + Next.js feature scaffolding
-│   ├── fastapi-backend/       # Layered API: public/protected/service/repository
-│   ├── nextjs-frontend/       # React 19, App Router, Tailwind v4, TanStack Query
-│   ├── db-migration-schema/   # SQLModel schemas, PostgreSQL migrations & indexing
-│   ├── supabase/              # Supabase products, auth, SSR, edge functions, storage
-│   ├── supabase-postgres-best-practices/ # Postgres indexing, query optimization & RLS
-│   ├── design-it/             # 30 Distinct aesthetic UI design systems
-│   ├── redesign-existing-projects/ # UI/UX aesthetic audit & visual restyling
-│   ├── codebase-audit-pre-push/# Pre-push git cleaner, secret scanner, and hygiene
-│   ├── performance-optimizer/ # Profiling, database indexes, API latency, memoization
-│   ├── systematic-debugging/  # 6-phase debugging loop & common pattern fixes
-│   ├── improve-codebase-architecture/# Architectural friction scanner & seam creation
-│   ├── code-review/           # Architecture consistency & PR review playbook
-│   ├── logic-lens/            # Formal reasoning & logic-based code analysis
-│   ├── tdd/                   # Test-driven development (red-green-refactor loop)
-│   ├── domain-modeling/       # DDD domain context, glossary & ADR generator
-│   ├── to-spec/               # Conversation synthesis into structured specs
-│   ├── to-tickets/            # Tracer-bullet ticket generator with dependency edges
-│   ├── prototype/             # Throwaway spikes & rapid terminal/UI prototypes
-│   ├── project-bootstrap/     # Greenfield repository bootstrapping
-│   ├── architecture-analysis/ # Codebase indexing & dependency mapping
-│   ├── skill-creator/         # Meta-skill for authoring and registering skills
-│   ├── skill-development/     # Anthropic plugin & agent development standard
-│   ├── skill-harness-sync/    # Synchronize, audit & import skills across harnesses
-│   ├── skill-check/           # Agentskills specification validator
-│   ├── writing-for-agents/    # Authoring rules, skills, AGENTS.md, CLAUDE.md
-│   ├── technical-change-tracker/ # Structured AI change tracking and state machine
-│   └── mcp-integration/       # Model Context Protocol server configuration
-└── adapters/
-    ├── claude/                # Claude Code integration templates
-    ├── antigravity/           # Antigravity config mapping
-    └── cursor/                # Cursor IDE / Windsurf rules fallback
+.memory/
+├── INDEX.md              # Compact Level-0 router (<40 lines). Always read first.
+├── domain.md             # Core business entities, glossary, ubiquitous language.
+├── architecture.md       # Tech stack, module boundaries, data flows, key ADR links.
+├── gotchas.md            # Non-obvious edge cases, environment quirks, resolved traps.
+├── session-handoff.md    # Ephemeral active state: goal, dead-ends, next steps.
+└── archive/              # Cold storage: superseded decisions (never queried in daily work).
 ```
+
+### 3. Memory Operations Workflow
+
+- **Startup / Discovery**: The agent checks `~/.agents/memory/conventions.md` and `.memory/INDEX.md`. If a task is trivial or unrelated to architectural patterns, it stops there (zero token waste).
+- **On-Demand Drilldown**: If the task involves domain entities or system boundaries, the agent reads only `domain.md` or `architecture.md`.
+- **Session Continuity**: When stopping mid-task, the agent writes to `session-handoff.md` (recording what was tried, dead ends, and immediate next steps).
+- **Memory Graduation**: Upon task completion, permanent discoveries are moved to `architecture.md` / `gotchas.md`, and `session-handoff.md` is reset to blank.
+- **Compaction & Invalidation**: When a decision or architectural pattern is replaced, the agent overwrites the active file and archives the obsolete record in `.memory/archive/` to prevent hallucinations.
+
+### 4. Git Isolation Strategy
+
+- **Personal / Open Source Repos**: Commit `.memory/` to git so memory travels with the project, branches, and team.
+- **Client / Confidential Repos**: Add `.memory/` to `.gitignore` (template provided in `templates/memory/.gitignore`).
 
 ---
 
-## 🛠 Available Skills Suite (28 Curated Skills)
+## 🛠 Available Skills Suite (29 Curated Skills)
 
 | Category | Skill | Trigger / Command | Description |
 | :--- | :--- | :--- | :--- |
+| **Memory** | `project-memory` | `/memory` | Manages two-tier persistent memory, session handoffs, compaction, and graduation. |
 | **Fullstack** | `fullstack-feature` | `/fullstack-feature` | Scaffolds end-to-end features connecting FastAPI backend with Next.js frontend UI & TanStack Query. |
 | **Backend** | `fastapi-backend` | `/fastapi-backend` | Generates layered FastAPI endpoints (`public.py`, `protected.py`, `service.py`, `repository.py`). |
 | **Frontend** | `nextjs-frontend` | `/nextjs-frontend` | Builds React 19 / Next.js App Router components with Tailwind v4 and Motion animations. |
@@ -184,30 +182,13 @@ To preview symlinks without modifying the filesystem:
 
 This repository maintains versioned release branches:
 
-- **`master`** — Production default branch containing the active release (v2.0).
-- **`v_2`** — Active v2 development branch (Modular on-demand skills architecture).
+- **`master`** — Production default branch containing the active release (v3.0).
+- **`v_3`** — Active v3 development branch (Two-Tier Hierarchical Markdown Memory Architecture).
+- **`v_2`** — Modular on-demand skills architecture snapshot.
 - **`v_1`** — Legacy snapshot containing the original `.agents/` monolithic rules and playbooks.
 
 > [!IMPORTANT]
-> **Branching Rule**: All changes, additions, and documentation updates MUST be committed to the development branch (e.g. `v_2`) first and then merged into `master`. No direct commits or pushes to `master`.
-
-### Release Workflow:
-```bash
-# 1. Work on the active version branch
-git checkout v_2
-
-# 2. Make improvements, sync & test
-./setup.sh --global
-
-# 3. Commit to v_2
-git add .
-git commit -m "feat(skills): add new capability"
-
-# 4. Merge into master
-git checkout master
-git merge v_2
-git push origin master v_2
-```
+> **Branching Rule**: All changes, additions, and documentation updates MUST be committed to the development branch (e.g. `v_3`) first and then merged into `master`. No direct commits or pushes to `master`.
 
 ---
 
