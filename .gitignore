@@ -19,8 +19,3 @@ desktop.ini
 *.log
 *.tmp
 *.temp
-
-# Local Project Links (when running --project on repo itself)
-.agents/
-.cursorrules
-
