@@ -129,7 +129,4 @@ Do NOT use `apply_migration` to change a local database schema — it writes a m
 3. **Generate the migration** → `supabase db pull <descriptive-name> --local --yes`
 4. **Verify** → `supabase migration list --local`
 
-## Reference Guides
 
-- **Skill Feedback** → [references/skill-feedback.md](references/skill-feedback.md)
-  **MUST read when** the user reports that this skill gave incorrect guidance or is missing information.
