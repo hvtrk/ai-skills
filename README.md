@@ -6,7 +6,7 @@
 
 A centralized, portable, and ultra-lean AI skills repository for modern software engineering workflows.
 
-Designed for high performance, zero context bloat, and universal compatibility across **Antigravity**, **Claude Code**, **OpenCode / Codex**, and **Cursor / Windsurf**.
+Designed for high performance and zero context bloat. The Memory System Core is filesystem-only and harness-independent; harness adapters are separate work.
 
 ---
 
@@ -16,10 +16,10 @@ Designed for high performance, zero context bloat, and universal compatibility a
 | :--- | :--- | :--- |
 | **Memory Architecture** | Global skills only (stateless across sessions) | **Two-Tier Persistent Memory**: Machine-wide conventions (`~/.agents/memory/`) + isolated workspace memory (`.memory/`) |
 | **Context Management** | Full repo inspection per task | **Hierarchical Level-0 Router (`.memory/INDEX.md` <40 lines)**; topic files loaded on-demand |
-| **Session Continuity** | Chat transcript dependent | **Dedicated ephemeral `session-handoff.md`** with automatic graduation to permanent records upon task completion |
-| **Project Isolation** | No local memory standard | **Strict project workspace boundary**: client project memory stays isolated, with optional git tracking or `.gitignore` |
+| **Session Continuity** | Chat transcript dependent | **Dedicated ephemeral `session-handoff.md`** for agent-guided continuation and graduation |
+| **Project Isolation** | No local memory standard | **Strict project workspace boundary** with user-managed persistence policy |
 | **Compaction & Anti-Drift** | Manual | **Append-and-replace compaction** with cold storage `.memory/archive/` (prevents hallucinating on obsolete notes) |
-| **Curated Suite** | 28 skills | **29 skills** including the new `project-memory` skill |
+| **Curated Suite** | 28 skills | **31 skills** including `project-memory`, `grill-with-docs`, and `wayfinder` |
 
 ---
 
@@ -30,14 +30,15 @@ flowchart TD
     subgraph GlobalTier["Global Tier (Machine-Wide & Agnostic)"]
         GP["~/.agents/memory/user-profile.md<br/>(Developer Profile, Tools, OS)"]
         GC["~/.agents/memory/conventions.md<br/>(Universal Coding Ethos & Styling)"]
-        GS["~/ai-skills/skills/<br/>(29 Curated On-Demand Skills)"]
+        GS["~/ai-skills/skills/<br/>(31 Curated On-Demand Skills)"]
     end
 
-    subgraph Harnesses["AI Agent Harnesses"]
-        AG["Antigravity (~/.gemini/config/)"]
-        CC["Claude Code (~/.claude/)"]
-        OC["OpenCode / Codex (~/.config/opencode/)"]
+    subgraph Harnesses["Harness Adapters & Integration"]
+        AG["Antigravity (~/.gemini/config/skills, ~/.gemini/GEMINI.md)"]
+        CC["Claude Code (~/.claude/skills, CLAUDE.md)"]
+        OC["OpenCode (~/.config/opencode/skills)"]
         CR["Cursor / Windsurf (.cursorrules)"]
+        GA["Global Agents (~/.agents/skills)"]
     end
 
     subgraph ProjectWorkspace["Project Workspace (<project-root>)"]
@@ -60,7 +61,7 @@ flowchart TD
     classDef harness fill:#0f172a,stroke:#818cf8,stroke-width:2px,color:#fff;
     classDef project fill:#1e1e38,stroke:#10b981,stroke-width:2px,color:#fff;
     class GP,GC,GS global;
-    class AG,CC,OC,CR harness;
+    class AG,CC,OC,CR,GA harness;
     class IDX,DOM,ARC,GOT,SES,ACH project;
 ```
 
@@ -78,10 +79,17 @@ cd ~/ai-skills
 chmod +x setup.sh
 ./setup.sh --global
 ```
-*Skills and the global memory tier immediately activate across Antigravity, Claude Code, OpenCode, and `~/.agents`.*
+*The installer seeds global defaults and links configured skill destinations across Antigravity, Claude Code, OpenCode, and `~/.agents/skills/`.*
 
-### 2. Initialize Memory in a Project Workspace
-To bootstrap the `.memory/` structure into any project:
+### 2. Antigravity-Specific Setup
+To install skills and configure global rules specifically for Google Antigravity:
+```bash
+~/ai-skills/setup.sh --antigravity
+```
+*Installs symlinks into `~/.gemini/config/skills/` and configures `~/.gemini/config/rules/memory.md` & `~/.gemini/GEMINI.md`.*
+
+### 3. Initialize Memory in a Project Workspace
+To bootstrap the `.memory/` structure into any project safely via Memory Core:
 ```bash
 # From ~/ai-skills:
 ./setup.sh --memory-init /path/to/my-project
@@ -91,12 +99,12 @@ To bootstrap the `.memory/` structure into any project:
 ```
 *(Idempotent: If `.memory/` already exists, existing documentation is safely preserved.)*
 
-### 3. Check Sync & Memory Status
+### 4. Check Sync & Memory Status
 ```bash
 ~/ai-skills/setup.sh --status
 ```
 
-### 4. Importing New Skills from `npx skills add`
+### 5. Importing New Skills from `npx skills add`
 ```bash
 ~/ai-skills/setup.sh --import
 ~/ai-skills/setup.sh --global
@@ -106,14 +114,14 @@ To bootstrap the `.memory/` structure into any project:
 
 ## 🗂 Memory Management & Usage Guide
 
-The memory architecture solves context window exhaustion and cross-project pollution using a **Hierarchical (Option C)** retrieval model.
+The memory architecture solves context window exhaustion and cross-project pollution using a **Hierarchical (Option C)** retrieval model. For full details on the lifecycle, see the [Project Memory Lifecycle Guide](docs/project-memory-lifecycle-guide.md) and [ADR-0002](docs/adr/0002-memory-system-v2-filesystem-first-harness-agnostic.md).
 
 ### 1. The Two Tiers
 
-| Tier | Path | Purpose | Git Tracking |
-| :--- | :--- | :--- | :--- |
-| **Global Memory** | `~/.agents/memory/` | Machine-wide developer profile (`user-profile.md`) and universal coding conventions (`conventions.md`). | Machine-local (agnostic) |
-| **Project Memory** | `<project-root>/.memory/` | Workspace-specific domain terms, tech stack patterns, gotchas, and session handoffs. | Committed with repo (personal) OR gitignored (client) |
+| Tier | Path | Purpose |
+| :--- | :--- | :--- |
+| **Global Memory** | `~/.agents/memory/` | Machine-wide developer profile (`user-profile.md`) and universal coding conventions (`conventions.md`). |
+| **Project Memory** | `<project-root>/.memory/` | Workspace-specific domain terms, tech stack patterns, gotchas, and session handoffs. |
 
 ### 2. File Taxonomy in `<project-root>/.memory/`
 
@@ -127,26 +135,27 @@ The memory architecture solves context window exhaustion and cross-project pollu
 └── archive/              # Cold storage: superseded decisions (never queried in daily work).
 ```
 
-### 3. Memory Operations Workflow
-
-- **Startup / Discovery**: The agent checks `~/.agents/memory/conventions.md` and `.memory/INDEX.md`. If a task is trivial or unrelated to architectural patterns, it stops there (zero token waste).
-- **On-Demand Drilldown**: If the task involves domain entities or system boundaries, the agent reads only `domain.md` or `architecture.md`.
-- **Session Continuity**: When stopping mid-task, the agent writes to `session-handoff.md` (recording what was tried, dead ends, and immediate next steps).
-- **Memory Graduation**: Upon task completion, permanent discoveries are moved to `architecture.md` / `gotchas.md`, and `session-handoff.md` is reset to blank.
-- **Compaction & Invalidation**: When a decision or architectural pattern is replaced, the agent overwrites the active file and archives the obsolete record in `.memory/archive/` to prevent hallucinations.
-
-### 4. Git Isolation Strategy
-
-- **Personal / Open Source Repos**: Commit `.memory/` to git so memory travels with the project, branches, and team.
-- **Client / Confidential Repos**: Add `.memory/` to `.gitignore` (template provided in `templates/memory/.gitignore`).
+### 3. Memory Core Operations (Phase 3: Lifecycle Mutations)
+ 
+- `python3 ~/ai-skills/scripts/memory.py init <project>`: Safely initializes project memory without overwriting existing files.
+- `python3 ~/ai-skills/scripts/memory.py check <project>`: Validates deterministic project-memory structure, headings, INDEX limit, frontmatter, archive metadata, local links, and handoff freshness.
+- `python3 ~/ai-skills/scripts/memory.py retrieve <project> [--profile] [--topic <topic>]`: Performs lazy, explicit retrieval of memory files.
+- `python3 ~/ai-skills/scripts/memory.py update <project> --input plan.json`: Atomically updates an agent-selected durable topic under lock with duplicate and conflict prevention.
+- `python3 ~/ai-skills/scripts/memory.py handoff <project> --input handoff.json`: Writes agent-provided unfinished-work and continuation state.
+- `python3 ~/ai-skills/scripts/memory.py graduate <project> --plan plan.json`: Transactionally promotes handoff knowledge to durable topic files and resets the handoff template upon validation.
+- `python3 ~/ai-skills/scripts/memory.py archive <project> --input archive.json`: Archives an agent-selected superseded record with provenance frontmatter into `.memory/archive/`.
+ 
+### 4. Persistence Policy
+ 
+Memory System v2 does not inspect or manage version control. The user decides whether `.memory/` is shared, local, ignored, backed up, or otherwise persisted. The optional `.gitignore` template is intentionally not applied by the Memory Core.
 
 ---
 
-## 🛠 Available Skills Suite (29 Curated Skills)
+## 🛠 Available Skills Suite (31 Curated Skills)
 
 | Category | Skill | Trigger / Command | Description |
 | :--- | :--- | :--- | :--- |
-| **Memory** | `project-memory` | `/memory` | Manages two-tier persistent memory, session handoffs, compaction, and graduation. |
+| **Memory** | `project-memory` | `memory` | Guides two-tier memory; Memory Core CLI implements init, validation check, retrieval, updates, handoffs, graduation, and archiving. |
 | **Fullstack** | `fullstack-feature` | `/fullstack-feature` | Scaffolds end-to-end features connecting FastAPI backend with Next.js frontend UI & TanStack Query. |
 | **Backend** | `fastapi-backend` | `/fastapi-backend` | Generates layered FastAPI endpoints (`public.py`, `protected.py`, `service.py`, `repository.py`). |
 | **Frontend** | `nextjs-frontend` | `/nextjs-frontend` | Builds React 19 / Next.js App Router components with Tailwind v4 and Motion animations. |
@@ -163,10 +172,12 @@ The memory architecture solves context window exhaustion and cross-project pollu
 | **Architecture** | `improve-codebase-architecture`| `/improve-codebase-architecture` | Deepens shallow modules, eliminates architectural friction, and establishes testable seams. |
 | **Architecture** | `architecture-analysis` | `/architecture-analysis` | Analyzes codebase structure, data flows, and creates architecture documentation. |
 | **Architecture** | `domain-modeling` | `/domain-modeling` | Builds and sharpens domain models, CONTEXT.md, and Architectural Decision Records (ADRs). |
+| **Architecture** | `grill-with-docs` | `/grill-me`, `/grill-with-docs` | Relentless interview to sharpen a plan or design, generating ADRs and glossary docs iteratively. |
 | **Engineering** | `tdd` | `/tdd` | Test-driven development red-green-refactor cycle with unit and integration tests. |
 | **Engineering** | `prototype` | `/prototype` | Builds throwaway prototypes to flesh out state/business logic or UI variations. |
 | **Engineering** | `to-spec` | `/to-spec` | Synthesizes chat conversation into actionable technical specifications. |
 | **Engineering** | `to-tickets` | `/to-tickets` | Breaks down plans/specs into tracer-bullet tickets with dependency edges. |
+| **Engineering** | `wayfinder` | `/wayfinder` | Charts large-scale initiatives as a shared map of decision tickets on issue trackers. |
 | **Engineering** | `project-bootstrap` | `/project-bootstrap` | Initializes a clean full-stack repository with boilerplate architecture. |
 | **Engineering** | `technical-change-tracker` | `/track-changes` | Structured JSON change logs and state machine handoffs between agent sessions. |
 | **Agent Tooling** | `skill-creator` | `/create-skill` | Authors, converts, and automatically registers new on-demand skills. |

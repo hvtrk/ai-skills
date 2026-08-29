@@ -8,8 +8,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$SCRIPT_DIR/skills"
 RULES_SRC="$SCRIPT_DIR/rules/core.md"
-TEMPLATES_SRC="$SCRIPT_DIR/templates"
 GLOBAL_MEMORY_DIR="$HOME/.agents/memory"
+MEMORY_CORE="$SCRIPT_DIR/scripts/memory.py"
 
 # Colors for terminal output
 BOLD="\033[1m"
@@ -29,9 +29,9 @@ ACTION="global"
 # Format: "key|Display Name|Skills Directory Path|Extra Hook Name"
 # -----------------------------------------------------------------------------
 HARNESS_REGISTRY=(
-    "antigravity|Google Antigravity|$HOME/.gemini/config/skills|"
+    "antigravity|Google Antigravity|$HOME/.gemini/config/skills|sync_antigravity_extra"
     "claude|Claude Code|$HOME/.claude/skills|sync_claude_extra"
-    "opencode|OpenCode / Codex|$HOME/.config/opencode/skills|"
+    "opencode|OpenCode|$HOME/.config/opencode/skills|"
     "global_agents|Global Agents Harness|$HOME/.agents/skills|"
 )
 
@@ -43,6 +43,7 @@ usage() {
     echo ""
     echo "Options:"
     echo "  --global              Install/symlink skills & seed global memory across all agent harnesses (default)"
+    echo "  --antigravity         Install/symlink skills & rules specifically for Google Antigravity"
     echo "  --project <dir>       Link skills & rules directly into a specific project repository"
     echo "  --memory-init <dir>   Initialize workspace .memory/ hierarchy in a project (idempotent)"
     echo "  --import              Import newly installed skills from ~/.agents/skills into ~/ai-skills"
@@ -57,6 +58,7 @@ usage() {
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --global) ACTION="global" ;;
+        --antigravity) ACTION="antigravity" ;;
         --import) ACTION="import" ;;
         --status) ACTION="status" ;;
         --dry-run) DRY_RUN=true ;;
@@ -157,34 +159,46 @@ init_project_memory() {
         exit 1
     fi
 
-    local memory_dir="$target_dir/.memory"
-    log_info "Initializing project memory in: $memory_dir"
+    if [ ! -f "$MEMORY_CORE" ]; then
+        echo -e "${RED}Error: Memory Core not found at $MEMORY_CORE${NC}"
+        exit 1
+    fi
 
+    log_info "Initializing project memory through the Memory Core: $target_dir/.memory"
+    local memory_command=(python3 "$MEMORY_CORE" init "$target_dir")
     if [ "$DRY_RUN" = true ]; then
-        log_info "(Dry-run) Would initialize .memory structure in $target_dir"
+        memory_command+=(--dry-run)
+    fi
+    "${memory_command[@]}"
+}
+
+sync_antigravity_extra() {
+    local src_gemini_md="$SCRIPT_DIR/adapters/antigravity/GEMINI.md"
+    local rules_dir="$HOME/.gemini/config/rules"
+    local target_rule="$rules_dir/memory.md"
+    local global_gemini="$HOME/.gemini/GEMINI.md"
+
+    if [ ! -f "$src_gemini_md" ]; then
+        log_warn "Antigravity adapter GEMINI.md not found at $src_gemini_md"
         return
     fi
 
-    mkdir -p "$memory_dir/archive"
+    # 1. Synchronize to ~/.gemini/config/rules/memory.md (hierarchical rule discovery)
+    link_item "$src_gemini_md" "$target_rule"
 
-    local template_dir="$TEMPLATES_SRC/memory"
-    if [ -d "$template_dir" ]; then
-        for tpl in "$template_dir"/*; do
-            local filename
-            filename="$(basename "$tpl")"
-            if [ "$filename" != ".gitignore" ]; then
-                if [ ! -f "$memory_dir/$filename" ]; then
-                    cp "$tpl" "$memory_dir/$filename"
-                    log_success "Created $memory_dir/$filename"
-                else
-                    log_info "Preserved existing $memory_dir/$filename"
-                fi
-            fi
-        done
+    # 2. Synchronize to ~/.gemini/GEMINI.md (root global rule file) if empty, missing, or already a symlink
+    if [ "$DRY_RUN" = true ]; then
+        log_info "(Dry-run) Would verify global Antigravity rule at $global_gemini"
+    else
+        if [ ! -e "$global_gemini" ] || [ -L "$global_gemini" ]; then
+            link_item "$src_gemini_md" "$global_gemini"
+        elif [ -f "$global_gemini" ] && [ ! -s "$global_gemini" ]; then
+            # File exists but is empty (0 bytes)
+            link_item "$src_gemini_md" "$global_gemini"
+        else
+            log_info "Preserving existing non-empty $global_gemini (global rules active via $target_rule)"
+        fi
     fi
-
-    log_success "Project memory successfully initialized at $memory_dir"
-    echo -e "Level-0 Router: ${CYAN}$memory_dir/INDEX.md${NC}"
 }
 
 sync_claude_extra() {
@@ -238,6 +252,15 @@ show_status() {
     else
         echo -e "  • ${RED}Not initialized${NC}"
     fi
+    echo ""
+
+    echo -e "${BOLD}Antigravity Global Rules:${NC}"
+    local ag_rule_p="missing"
+    local ag_gemini_p="missing"
+    [ -e "$HOME/.gemini/config/rules/memory.md" ] && ag_rule_p="${GREEN}active${NC}"
+    [ -e "$HOME/.gemini/GEMINI.md" ] && ag_gemini_p="${GREEN}active${NC}"
+    echo -e "  • ~/.gemini/config/rules/memory.md: $ag_rule_p"
+    echo -e "  • ~/.gemini/GEMINI.md:              $ag_gemini_p"
     echo ""
 
     echo -e "${BOLD}Central Skills in ~/ai-skills/skills:${NC}"
@@ -324,6 +347,16 @@ if [ "$ACTION" = "memory_init" ]; then
     exit 0
 fi
 
+if [ "$ACTION" = "antigravity" ]; then
+    init_global_memory
+    sync_harness_skills "Google Antigravity" "$HOME/.gemini/config/skills"
+    sync_antigravity_extra
+    echo ""
+    log_success "Google Antigravity harness successfully synchronized!"
+    echo -e "Global rules installed at ~/.gemini/config/rules/memory.md and ~/.gemini/GEMINI.md."
+    exit 0
+fi
+
 if [ "$ACTION" = "global" ]; then
     init_global_memory
 
@@ -337,7 +370,7 @@ if [ "$ACTION" = "global" ]; then
 
     echo ""
     log_success "All agent harnesses successfully synchronized with ~/ai-skills repository!"
-    echo -e "Skills and two-tier memory protocol are now active across Antigravity, Claude Code, OpenCode, and ~/.agents."
+    echo -e "Skills were linked to configured destinations. Memory retrieval remains agent-guided."
 fi
 
 # Optional Project-Level Setup

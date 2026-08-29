@@ -2,6 +2,8 @@
 
 A reference guide explaining how AI agent memory works, how it updates during development, and how agents determine that a feature is complete and ready for memory graduation.
 
+> **Implementation status:** Phase 3 implements deterministic lifecycle mutations (`memory update`, `memory handoff`, `memory graduate`, and `memory archive`) alongside `memory init`, `memory check` (structure, headings, INDEX size limit, YAML frontmatter, archive metadata, local links, handoff freshness, locking safety), and lazy `memory retrieve`. Semantic decision-making (what is durable, graduation selection, obsolescence) remains agent-guided, while validation, locking, atomic writes, duplicate/conflict detection, and multi-file staged rollbacks are enforced deterministically by the filesystem-only Memory Core.
+
 ---
 
 ## 1. The Two-Tier Hierarchical Memory Architecture
@@ -22,7 +24,7 @@ To prevent context window bloat and avoid cross-project contamination, memory is
 ├── architecture.md       # Stack, design decisions, invariants, API contracts
 ├── gotchas.md            # Non-obvious quirks, bug traps, environment traps
 ├── session-handoff.md    # Ephemeral state (wiped/graduated on task completion)
-└── archive/              # Superseded historical records (YYYY-MM-<topic>.md)
+└── archive/              # Superseded historical records (YYYY-MM-DD-<topic>-<id>.md)
 ```
 
 ---
@@ -37,7 +39,8 @@ flowchart TD
     CheckGlobal --> CheckLocal{"2. Does .memory/INDEX.md exist?"}
     CheckLocal -->|No| NormalWork["Work normally without project memory"]
     CheckLocal -->|Yes| ReadIndex["Read .memory/INDEX.md (<40 lines)"]
-    ReadIndex --> SelectTopic{"Is specific memory relevant?"}
+    SelectTopic{"Is specific memory relevant?"}
+    ReadIndex --> SelectTopic
     SelectTopic -->|Domain / Entities| ReadDomain["Read .memory/domain.md"]
     SelectTopic -->|Architecture / ADRs| ReadArch["Read .memory/architecture.md"]
     SelectTopic -->|Gotchas / Bug traps| ReadGotchas["Read .memory/gotchas.md"]
@@ -47,65 +50,103 @@ flowchart TD
 
 ---
 
-## 3. How Memory Updates Work (Lifecycle Operations)
+## 3. How Memory Updates Work (Phase 3 Lifecycle Operations)
 
-### A. In-Flight Logging (During Execution)
-When an agent encounters a non-obvious bug trap, environment quirk, or library gotcha during development:
-- It records the gotcha in `.memory/gotchas.md` immediately so future subagents or sessions do not repeat the mistake.
-- If an approach fails, it logs the approach under `Dead Ends` in `.memory/session-handoff.md`.
+### A. Durable Topic Update (`memory update`)
+When an agent determines that a non-obvious bug trap, environment quirk, or architectural decision is durable project knowledge:
+- Execute `memory update <project> --input plan.json` (or `--topic <topic> --input note.md`).
+- Input contract:
+  ```json
+  {
+    "operation": "update",
+    "topic": "architecture",
+    "title": "ADR-0003 Distributed Caching",
+    "section": "Key Architectural Decisions",
+    "content": "- **[ADR-0003]**: Use Redis for distributed token caching with 5-minute TTL.",
+    "metadata": { "created": "2026-08-28", "updated": "2026-08-28", "source": "design-review" }
+  }
+  ```
+- **Deterministic Core Protections**: Acquires lock, detects exact duplicates and title conflicts, stages atomic write under specified section or file end, validates memory structure post-mutation, and automatically rolls back if validation fails.
 
-### B. Append-and-Replace Compaction
-- Agents **never** blindly append contradictory notes to active files.
-- Active files (`architecture.md`, `domain.md`, `gotchas.md`) only contain current invariants and active patterns.
-- If a prior architectural decision is superseded:
-  1. The superseded record is moved to `.memory/archive/YYYY-MM-<topic>.md`.
-  2. A frontmatter tag is attached: `superseded-by: <Commit/PR/Decision>`.
-
-### C. Session Handoff (`/memory handoff`)
+### B. Session Handoff (`memory handoff`)
 When a task is paused, interrupted, or approaching token limits:
-- The agent updates `.memory/session-handoff.md` with:
-  - **Current Goal**: Exact objective being pursued.
-  - **Modified Files**: List of active files touched.
-  - **Dead Ends**: Approaches that failed and should not be retried.
-  - **Immediate Next Step**: The exact line, function, or command to execute next.
+- Execute `memory handoff <project> --input handoff.json` (or with a Markdown file).
+- Input contract:
+  ```json
+  {
+    "operation": "handoff",
+    "goal": "Refactor token bucket algorithm",
+    "files_in_progress": ["src/ratelimit.py", "tests/test_ratelimit.py"],
+    "build_status": "Tests passing, lint clean",
+    "dead_ends": ["Fixed window counter caused stampedes"],
+    "next_step": "Benchmark under 10k rps load"
+  }
+  ```
+- **Deterministic Core Protections**: Validates mandatory goal and next step, replaces `session-handoff.md` atomically under lock, and verifies template structure.
 
-### D. Memory Graduation (`/memory graduate`)
+### C. Memory Graduation (`memory graduate`)
 When a feature is finished and verified:
-1. **Extract Permanent Knowledge**:
-   - Move new architectural patterns & conventions to `architecture.md`.
-   - Move discovered bug traps and quirks to `gotchas.md`.
-   - Move new domain models and business terms to `domain.md`.
-2. **Reset Ephemeral State**:
-   - Clear `session-handoff.md` back to the clean template so obsolete short-term state does not mislead subsequent sessions.
+- Execute `memory graduate <project> --plan plan.json`.
+- Input contract:
+  ```json
+  {
+    "operation": "graduate",
+    "source": "session-handoff.md",
+    "promotions": [
+      {
+        "topic": "architecture",
+        "title": "Billing Engine",
+        "section": "System Structure & Boundaries",
+        "content": "- `src/billing/...`: Handles Stripe webhook reconciliation and tax calculation."
+      },
+      {
+        "topic": "gotchas",
+        "title": "Stripe Webhook Idempotency",
+        "section": "Critical Traps",
+        "content": "- **[Stripe Webhook Idempotency]**: Stripe may retry webhooks up to 72 hours; deduplicate by event_id."
+      }
+    ],
+    "reset_handoff": true
+  }
+  ```
+- **Deterministic Core Protections**: Applies all promotions under project lock, validates all resulting durable files, and only resets `session-handoff.md` to template after all durable updates pass validation. If any promotion fails, all files roll back transactionally and the handoff is preserved.
+
+### D. Superseded Record Archiving (`memory archive`)
+When an existing architectural pattern or gotcha is obsolete:
+- Execute `memory archive <project> --input archive.json` (or `--topic <topic> --superseded-by <ref> --input entry.md`).
+- Input contract:
+  ```json
+  {
+    "operation": "archive",
+    "source_topic": "architecture",
+    "title": "Legacy Auth Deprecated",
+    "content": "- **[Legacy Auth]**: Basic HTTP authentication headers.",
+    "superseded_by": "ADR-0002",
+    "reason": "Replaced by OAuth2 PKCE",
+    "archive_date": "2026-08-28"
+  }
+  ```
+- **Deterministic Core Protections**: Verifies source content exists in the active topic file, generates a collision-free `YYYY-MM-DD-<topic>-<slug>.md` archive record with required YAML frontmatter (`archive_date`, `source_topic`, `superseded_by`), strips the obsolete content from the active file, and validates both files before committing.
 
 ---
 
-## 4. How the Agent Knows a Feature Is Complete
+## 4. Completion and Graduation Are Agent-Guided
 
-The agent detects completion using a structured **Definition of Done (DoD)** and state machine verification rather than guessing:
+The Memory Core does not detect feature completion, run a Definition of Done gate, or integrate a state machine. The agent evaluates the task's requested acceptance criteria and verification evidence, then deliberately chooses whether to graduate durable knowledge or retain an unfinished handoff.
 
 ```mermaid
 flowchart TD
-    A["Implement Code Changes"] --> B["Verification & Test Suite (TDD / Linters)"]
-    B --> C{"All Tests & Criteria Passed?"}
-    C -->|No / Blocked| D["Update session-handoff.md<br>(Dead ends, active files, next step)"]
-    C -->|Yes| E["Task Completion Gate (DoD)"]
-    E --> F["Extract Permanent Knowledge<br>→ architecture.md / gotchas.md / domain.md"]
-    F --> G["Reset session-handoff.md"]
+    A["Agent evaluates task evidence"] --> B{"Work complete?"}
+    B -->|No / Blocked| C["Agent executes memory handoff"]
+    B -->|Yes| D["Agent executes memory graduate"]
+    D --> E["Core resets handoff only after successful promotion validation"]
 ```
 
 ### Key Completion Triggers
 
-1. **Deterministic Verification Pass**:
-   - All unit, integration, and end-to-end tests pass.
-   - Linters and type checkers report zero errors.
-   - All acceptance criteria defined in the user prompt or implementation plan are met.
-2. **Operating Rules Enforcement (Definition of Done Gate)**:
-   - Operating rules (e.g., [Rule 8 in `rules/core.md`](file:///Users/rahul/ai-skills/rules/core.md#L12)) mandate checking memory as the final step of feature execution.
-3. **Structured State Machine**:
-   - In tracked workflows, the state transitions through explicit stages:
-     $$\text{planned} \longrightarrow \text{in\_progress} \longrightarrow \text{implemented} \longrightarrow \text{tested} \longrightarrow \text{closed}$$
-   - Reaching `tested` / `closed` triggers memory graduation.
+1. **Task evidence**: The agent considers the task's acceptance criteria and relevant verification.
+2. **Knowledge classification**: The agent decides whether a discovery is durable project knowledge, unfinished work, user-level knowledge, a generalized procedure, or disposable.
+3. **Explicit action**: The agent chooses an appropriate memory operation (`update`, `handoff`, `graduate`, `archive`). The core does not automatically trigger graduation or modify `INDEX.md`.
 
 ---
 
@@ -113,7 +154,6 @@ flowchart TD
 
 | Scenario | Agent State | Memory Action |
 | :--- | :--- | :--- |
-| **Feature Fully Complete** | All tests pass; criteria fulfilled | **Graduate Memory**: Move permanent knowledge into `architecture.md`, `domain.md`, `gotchas.md`; reset `session-handoff.md`. |
-| **Feature Incomplete / Interrupted** | Hit token limit, waiting for user input, or stopping mid-task | **Session Handoff**: Update `session-handoff.md` with active files, current goal, dead ends, and exact next line/function to touch. |
-| **Architectural Change** | New service/library/schema added | **Update Active File**: Modify `architecture.md` / `domain.md`, archive superseded records to `.memory/archive/`. |
-
+| **Feature Fully Complete** | All tests pass; criteria fulfilled | **Graduate Memory**: `memory graduate <project> --plan plan.json` moves permanent knowledge into `architecture.md`, `domain.md`, `gotchas.md` and resets `session-handoff.md`. |
+| **Feature Incomplete / Interrupted** | Hit token limit, waiting for user input, or stopping mid-task | **Session Handoff**: `memory handoff <project> --input handoff.json` updates `session-handoff.md` with active files, current goal, dead ends, and exact next step. |
+| **Architectural Change** | New service/library/schema added | **Update Active File**: `memory update <project> --input update.json`; archive superseded records using `memory archive <project> --input archive.json`. |
