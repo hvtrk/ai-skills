@@ -1,0 +1,4 @@
+{
+  "$schema_note": "Canonical MCP server declarations synced out to per-harness config via scripts/mcp_sync.py. See mcp/README.md for the entry schema and safety model.",
+  "servers": []
+}

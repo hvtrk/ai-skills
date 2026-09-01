@@ -19,7 +19,7 @@ Designed for high performance and zero context bloat. The Memory System Core is 
 | **Session Continuity** | Chat transcript dependent | **Dedicated ephemeral `session-handoff.md`** for agent-guided continuation and graduation |
 | **Project Isolation** | No local memory standard | **Strict project workspace boundary** with user-managed persistence policy |
 | **Compaction & Anti-Drift** | Manual | **Append-and-replace compaction** with cold storage `.memory/archive/` (prevents hallucinating on obsolete notes) |
-| **Curated Suite** | 28 skills | **31 skills** including `project-memory`, `grill-with-docs`, and `wayfinder` |
+| **Curated Suite** | 28 skills | **32 skills** including `project-memory`, `memory-lint`, `grill-with-docs`, and `wayfinder` |
 
 ---
 
@@ -30,7 +30,7 @@ flowchart TD
     subgraph GlobalTier["Global Tier (Machine-Wide & Agnostic)"]
         GP["~/.agents/memory/user-profile.md<br/>(Developer Profile, Tools, OS)"]
         GC["~/.agents/memory/conventions.md<br/>(Universal Coding Ethos & Styling)"]
-        GS["~/ai-skills/skills/<br/>(31 Curated On-Demand Skills)"]
+        GS["~/ai-skills/skills/<br/>(32 Curated On-Demand Skills)"]
     end
 
     subgraph Harnesses["Harness Adapters & Integration"]
@@ -110,6 +110,13 @@ To bootstrap the `.memory/` structure into any project safely via Memory Core:
 ~/ai-skills/setup.sh --global
 ```
 
+### 6. MCP Multi-Harness Sync
+Declare MCP servers once in `mcp/servers.json`, then sync them to each harness's own config format (`~/.claude.json`, OpenCode's `opencode.json`, Antigravity's `mcp.json`). See [mcp/README.md](mcp/README.md) for the manifest schema and safety model (dry-run by default; only entries this tool created are ever touched).
+```bash
+~/ai-skills/setup.sh --sync-mcp            # dry-run preview, writes nothing
+~/ai-skills/setup.sh --sync-mcp --apply    # write for real
+```
+
 ---
 
 ## 🗂 Memory Management & Usage Guide
@@ -151,11 +158,12 @@ Memory System v2 does not inspect or manage version control. The user decides wh
 
 ---
 
-## 🛠 Available Skills Suite (31 Curated Skills)
+## 🛠 Available Skills Suite (32 Curated Skills)
 
 | Category | Skill | Trigger / Command | Description |
 | :--- | :--- | :--- | :--- |
 | **Memory** | `project-memory` | `memory` | Guides two-tier memory; Memory Core CLI implements init, validation check, retrieval, updates, handoffs, graduation, and archiving. |
+| **Memory** | `memory-lint` | `/memory-lint` | Structural health check for `.memory/` (INDEX size, required files, frontmatter, handoff freshness); reports `scripts/memory.py check` findings in plain language. |
 | **Fullstack** | `fullstack-feature` | `/fullstack-feature` | Scaffolds end-to-end features connecting FastAPI backend with Next.js frontend UI & TanStack Query. |
 | **Backend** | `fastapi-backend` | `/fastapi-backend` | Generates layered FastAPI endpoints (`public.py`, `protected.py`, `service.py`, `repository.py`). |
 | **Frontend** | `nextjs-frontend` | `/nextjs-frontend` | Builds React 19 / Next.js App Router components with Tailwind v4 and Motion animations. |

@@ -3,27 +3,14 @@
 > Short-term ephemeral state for AI agent continuity. Reset upon task completion.
 
 ## Current Goal
-- Align on philosophy, feature boundaries, and specifications for the **Major v3.0 Release** of `ai-skills`.
+- v3.0 landmark scope workstream is closed. ADR-0003 decisions (composable pipeline, structural-only /memory-lint, setup.sh-extended MCP sync) are locked and implemented.
 
 ## State & Files in Progress
-- **Branch**: `v_3` (clean working tree).
-- **Core Decision Agreed**: Expanding v3 scope beyond pure memory/skill updates into a landmark release featuring:
-  1. Memory Health & Linter Tooling (`/memory-lint`, deterministic verification, anti-drift).
-  2. Spec-to-Execution Pipeline Standard (`/grill-with-docs` ➔ `/to-spec` ➔ `/to-tickets` ➔ `/tdd`).
-  3. MCP Multi-Harness Sync (`setup.sh`).
-- **Files in Context**:
-  - [.memory/INDEX.md](file:///Users/rahul/ai-skills/.memory/INDEX.md)
-  - [CONTEXT.md](file:///Users/rahul/ai-skills/CONTEXT.md)
-  - [README.md](file:///Users/rahul/ai-skills/README.md)
-  - [docs/adr/0001-two-tier-hierarchical-markdown-memory.md](file:///Users/rahul/ai-skills/docs/adr/0001-two-tier-hierarchical-markdown-memory.md)
+- Modified files: docs/adr/0003-v3-landmark-scope-pipeline-linter-mcp-sync.md, skills/memory-lint/SKILL.md, mcp/servers.json, mcp/README.md, scripts/mcp_sync.py, tests/test_mcp_sync.py, setup.sh, README.md
+- Build / Test status: 123/123 unittest tests passing (99 pre-existing + 24 new in tests/test_mcp_sync.py). setup.sh --global re-synced memory-lint to all 4 harnesses (32 skills). setup.sh --sync-mcp verified dry-run only, no live harness config files touched (mcp/servers.json is still empty -- no servers declared yet).
 
 ## Dead Ends & What Failed
-- *Avoid*: N/A
+- Avoid: None
 
 ## Immediate Next Step
-1. Resume the discussion / grilling on:
-   - Pipeline architecture: Composable independent skills vs unified orchestrator workflow.
-   - Memory Linter depth: Rule set (INDEX <40 lines, dead ADR links, code drift checks).
-   - MCP sync strategy across Claude Code, Antigravity, and OpenCode.
-2. Run `/to-spec` once philosophical alignment is locked.
-
+- No active task. When the user wants to register a real MCP server, add it to mcp/servers.json (see mcp/README.md schema) and run ./setup.sh --sync-mcp to preview before --apply. Nothing else pending from ADR-0003.

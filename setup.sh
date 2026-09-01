@@ -10,6 +10,8 @@ SKILLS_SRC="$SCRIPT_DIR/skills"
 RULES_SRC="$SCRIPT_DIR/rules/core.md"
 GLOBAL_MEMORY_DIR="$HOME/.agents/memory"
 MEMORY_CORE="$SCRIPT_DIR/scripts/memory.py"
+MCP_SYNC="$SCRIPT_DIR/scripts/mcp_sync.py"
+MCP_MANIFEST="$SCRIPT_DIR/mcp/servers.json"
 
 # Colors for terminal output
 BOLD="\033[1m"
@@ -21,6 +23,7 @@ CYAN="\033[0;36m"
 NC="\033[0m"
 
 DRY_RUN=false
+APPLY_MCP=false
 PROJECT_DIR=""
 ACTION="global"
 
@@ -48,6 +51,8 @@ usage() {
     echo "  --memory-init <dir>   Initialize workspace .memory/ hierarchy in a project (idempotent)"
     echo "  --import              Import newly installed skills from ~/.agents/skills into ~/ai-skills"
     echo "  --status              Show sync status across all agent harnesses & global memory"
+    echo "  --sync-mcp            Preview MCP server manifest sync across harnesses (dry-run unless --apply)"
+    echo "  --apply               Combine with --sync-mcp to write changes (default is preview-only)"
     echo "  --dry-run             Show what links and directories would be created without making changes"
     echo "  -h, --help            Show this help message"
     echo ""
@@ -61,6 +66,8 @@ while [[ "$#" -gt 0 ]]; do
         --antigravity) ACTION="antigravity" ;;
         --import) ACTION="import" ;;
         --status) ACTION="status" ;;
+        --sync-mcp) ACTION="sync_mcp" ;;
+        --apply) APPLY_MCP=true ;;
         --dry-run) DRY_RUN=true ;;
         --project) ACTION="project"; PROJECT_DIR="$2"; shift ;;
         --memory-init) ACTION="memory_init"; PROJECT_DIR="$2"; shift ;;
@@ -69,6 +76,10 @@ while [[ "$#" -gt 0 ]]; do
     esac
     shift
 done
+
+if [ "$APPLY_MCP" = true ] && [ "$ACTION" != "sync_mcp" ]; then
+    echo -e "${YELLOW}[WARN]${NC} --apply has no effect without --sync-mcp; ignoring."
+fi
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
@@ -292,6 +303,15 @@ show_status() {
         fi
     done
     echo ""
+
+    echo -e "${BOLD}MCP Server Manifest (mcp/servers.json):${NC}"
+    if [ -f "$MCP_SYNC" ] && [ -f "$MCP_MANIFEST" ]; then
+        python3 "$MCP_SYNC" --manifest "$MCP_MANIFEST" list 2>&1 | sed 's/^/  /'
+        echo -e "  ${CYAN}Run './setup.sh --sync-mcp' for a dry-run preview, add --apply to write.${NC}"
+    else
+        echo -e "  ${RED}Not available (missing scripts/mcp_sync.py or mcp/servers.json)${NC}"
+    fi
+    echo ""
 }
 
 import_new_skills() {
@@ -344,6 +364,19 @@ fi
 
 if [ "$ACTION" = "memory_init" ]; then
     init_project_memory "$PROJECT_DIR"
+    exit 0
+fi
+
+if [ "$ACTION" = "sync_mcp" ]; then
+    if [ ! -f "$MCP_SYNC" ]; then
+        echo -e "${RED}Error: MCP sync script not found at $MCP_SYNC${NC}"
+        exit 1
+    fi
+    mcp_command=(python3 "$MCP_SYNC" --manifest "$MCP_MANIFEST" sync --all)
+    if [ "$APPLY_MCP" = true ]; then
+        mcp_command+=(--apply)
+    fi
+    "${mcp_command[@]}"
     exit 0
 fi
 
