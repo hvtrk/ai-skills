@@ -34,6 +34,7 @@ ACTION="global"
 HARNESS_REGISTRY=(
     "antigravity|Google Antigravity|$HOME/.gemini/config/skills|sync_antigravity_extra"
     "claude|Claude Code|$HOME/.claude/skills|sync_claude_extra"
+    "codex|Codex CLI|$HOME/.codex/skills|sync_codex_extra"
     "opencode|OpenCode|$HOME/.config/opencode/skills|"
     "global_agents|Global Agents Harness|$HOME/.agents/skills|"
 )
@@ -225,6 +226,28 @@ sync_claude_extra() {
             cp "$src_claude_md" "$claude_md"
             log_success "Created global Claude instructions at $claude_md"
         fi
+    fi
+}
+
+sync_codex_extra() {
+    local codex_dir="$HOME/.codex"
+    local codex_agents_md="$codex_dir/AGENTS.md"
+    local src_agents_md="$SCRIPT_DIR/adapters/codex/AGENTS.md"
+
+    if [ ! -f "$src_agents_md" ]; then
+        log_warn "Codex adapter AGENTS.md not found at $src_agents_md"
+        return
+    fi
+    if [ "$DRY_RUN" = true ]; then
+        log_info "(Dry-run) Would verify global Codex instructions at $codex_agents_md"
+        return
+    fi
+    mkdir -p "$codex_dir"
+    if [ ! -f "$codex_agents_md" ] || [ ! -s "$codex_agents_md" ]; then
+        cp "$src_agents_md" "$codex_agents_md"
+        log_success "Created/updated global Codex instructions at $codex_agents_md (was missing or empty)"
+    else
+        log_info "Preserving existing non-empty $codex_agents_md"
     fi
 }
 
