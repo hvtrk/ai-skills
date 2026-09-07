@@ -25,6 +25,7 @@ NC="\033[0m"
 DRY_RUN=false
 APPLY_MCP=false
 PROJECT_DIR=""
+PROJECT_HARNESSES=""
 ACTION="global"
 
 # -----------------------------------------------------------------------------
@@ -49,6 +50,8 @@ usage() {
     echo "  --global              Install/symlink skills & seed global memory across all agent harnesses (default)"
     echo "  --antigravity         Install/symlink skills & rules specifically for Google Antigravity"
     echo "  --project <dir>       Link skills & rules directly into a specific project repository"
+    echo "  --harnesses <list>    Comma-separated harnesses for --project: claude,antigravity,codex,cursor (or 'all')."
+    echo "                        Omit while interactive to be prompted; defaults to 'all' when non-interactive."
     echo "  --memory-init <dir>   Initialize workspace .memory/ hierarchy in a project (idempotent)"
     echo "  --import              Import newly installed skills from ~/.agents/skills into ~/ai-skills"
     echo "  --status              Show sync status across all agent harnesses & global memory"
@@ -71,6 +74,7 @@ while [[ "$#" -gt 0 ]]; do
         --apply) APPLY_MCP=true ;;
         --dry-run) DRY_RUN=true ;;
         --project) ACTION="project"; PROJECT_DIR="$2"; shift ;;
+        --harnesses) PROJECT_HARNESSES="$2"; shift ;;
         --memory-init) ACTION="memory_init"; PROJECT_DIR="$2"; shift ;;
         -h|--help) usage ;;
         *) echo -e "${RED}Unknown option: $1${NC}"; usage ;;
@@ -225,6 +229,77 @@ sync_claude_extra() {
             mkdir -p "$claude_dir"
             cp "$src_claude_md" "$claude_md"
             log_success "Created global Claude instructions at $claude_md"
+        fi
+    fi
+}
+
+PROJECT_INSTRUCTIONS_SRC="$SCRIPT_DIR/templates/project/AI_INSTRUCTIONS.md"
+
+# Every harness gets the exact same instruction body (just a different filename),
+# so Claude Code, Antigravity, and Codex/OpenCode never drift out of sync.
+write_project_instruction_file() {
+    local target_file="$1"
+    local label="$2"
+
+    if [ ! -f "$target_file" ] || [ ! -s "$target_file" ]; then
+        cp "$PROJECT_INSTRUCTIONS_SRC" "$target_file"
+        log_success "Created $label instructions at $target_file"
+    else
+        log_info "Preserving existing non-empty $target_file"
+    fi
+}
+
+# Interactive multiselect. Prints menu to stderr; the selection result (and
+# only the result) goes to stdout so it can be captured via $(...).
+prompt_harness_selection() {
+    echo "" >&2
+    echo -e "${BOLD}Select harnesses to configure for this project:${NC}" >&2
+    echo "  1) Claude Code           (CLAUDE.md)" >&2
+    echo "  2) Google Antigravity    (GEMINI.md)" >&2
+    echo "  3) Codex CLI / OpenCode  (AGENTS.md)" >&2
+    echo "  4) Cursor                (.cursorrules)" >&2
+    echo "" >&2
+    read -p "Enter choices separated by spaces (e.g. '1 2'), or 'a' for all [a]: " selection
+    selection="${selection:-a}"
+
+    if [[ "$selection" == *a* ]]; then
+        echo "claude,antigravity,codex,cursor"
+        return
+    fi
+
+    local result=""
+    for tok in $selection; do
+        case "$tok" in
+            1) result="$result,claude" ;;
+            2) result="$result,antigravity" ;;
+            3) result="$result,codex" ;;
+            4) result="$result,cursor" ;;
+        esac
+    done
+    echo "${result#,}"
+}
+
+sync_project_harness_files() {
+    local target_dir="$1"
+    local harnesses="$2"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "(Dry-run) Would configure project instruction files for: $harnesses"
+        return
+    fi
+
+    if [[ ",$harnesses," == *",claude,"* ]]; then
+        write_project_instruction_file "$target_dir/CLAUDE.md" "Claude Code"
+    fi
+    if [[ ",$harnesses," == *",antigravity,"* ]]; then
+        write_project_instruction_file "$target_dir/GEMINI.md" "Antigravity"
+    fi
+    if [[ ",$harnesses," == *",codex,"* ]]; then
+        write_project_instruction_file "$target_dir/AGENTS.md" "Codex CLI / OpenCode"
+    fi
+    if [[ ",$harnesses," == *",cursor,"* ]]; then
+        if [ -f "$SCRIPT_DIR/adapters/cursor/base.cursorrules" ]; then
+            link_item "$SCRIPT_DIR/adapters/cursor/base.cursorrules" "$target_dir/.cursorrules"
         fi
     fi
 }
@@ -433,7 +508,6 @@ fi
 if [ "$ACTION" = "project" ] && [ -n "$PROJECT_DIR" ]; then
     log_info "Configuring project repository at: $PROJECT_DIR"
     TARGET_AGENTS="$PROJECT_DIR/.agents"
-    TARGET_CURSOR="$PROJECT_DIR/.cursorrules"
 
     if [ "$DRY_RUN" = false ]; then
         mkdir -p "$TARGET_AGENTS"
@@ -441,11 +515,19 @@ if [ "$ACTION" = "project" ] && [ -n "$PROJECT_DIR" ]; then
 
     link_item "$SKILLS_SRC" "$TARGET_AGENTS/skills"
     link_item "$RULES_SRC" "$TARGET_AGENTS/rules.md"
-    if [ -f "$SCRIPT_DIR/adapters/cursor/base.cursorrules" ]; then
-        link_item "$SCRIPT_DIR/adapters/cursor/base.cursorrules" "$TARGET_CURSOR"
-    fi
 
     init_project_memory "$PROJECT_DIR"
+
+    if [ -z "$PROJECT_HARNESSES" ]; then
+        if [ -t 0 ] && [ -t 1 ] && [ "$DRY_RUN" = false ]; then
+            PROJECT_HARNESSES="$(prompt_harness_selection)"
+        else
+            PROJECT_HARNESSES="claude,antigravity,codex,cursor"
+        fi
+    fi
+
+    log_info "Configuring harness instruction files for: $PROJECT_HARNESSES"
+    sync_project_harness_files "$PROJECT_DIR" "$PROJECT_HARNESSES"
 
     log_success "Project-level links and memory configured for: $PROJECT_DIR"
 fi
