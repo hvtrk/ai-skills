@@ -2,23 +2,35 @@
   "hooks": {
     "SessionStart": [
       {
-        "type": "command",
-        "command": "python3 \"$(pwd)/scripts/workspace_guard.py\" activate --harness claude",
-        "statusMessage": "Activating workspace..."
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(pwd)/scripts/workspace_guard.py\" activate --harness claude",
+            "statusMessage": "Activating workspace..."
+          }
+        ]
       }
     ],
     "SessionEnd": [
       {
-        "type": "command",
-        "command": "python3 \"$(pwd)/scripts/workspace_guard.py\" deactivate --harness claude",
-        "statusMessage": "Deactivating workspace..."
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(pwd)/scripts/workspace_guard.py\" deactivate --harness claude",
+            "statusMessage": "Deactivating workspace..."
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit|NotebookEdit",
-        "type": "command",
-        "command": "python3 scripts/workspace_guard.py check"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/workspace_guard.py check"
+          }
+        ]
       }
     ]
   }
