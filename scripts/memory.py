@@ -487,7 +487,7 @@ def detect_duplicate_or_conflict(
         if clean_title:
             escaped = re.escape(clean_title)
             title_pattern = re.compile(
-                rf"(?:\[{escaped}\]|\*\*{escaped}\*\*|#{1, 6}\s+{escaped})",
+                rf"(?:\[{escaped}\]|\*\*{escaped}\*\*|#{{1,6}}\s+{escaped})",
                 re.IGNORECASE,
             )
             if title_pattern.search(target_content):
@@ -510,7 +510,7 @@ def insert_into_topic(
 
     if section:
         clean_sec = section.strip().lstrip("#").strip()
-        sec_pattern = re.compile(rf"^#{1, 6}\s+{re.escape(clean_sec)}\b", re.IGNORECASE)
+        sec_pattern = re.compile(rf"^#{{1,6}}\s+{re.escape(clean_sec)}\b", re.IGNORECASE)
         sec_idx = -1
         for i, line in enumerate(lines):
             if sec_pattern.match(line.strip()):
@@ -1578,7 +1578,12 @@ superseded_by: {sup_str}
                 ],
             }
 
-        new_source = cur_source.replace(clean_content, "")
+        # Remove whole lines (including their newline) so no blank line is left
+        # between the neighbouring entries; fall back to a plain substring removal.
+        if clean_content + "\n" in cur_source:
+            new_source = cur_source.replace(clean_content + "\n", "")
+        else:
+            new_source = cur_source.replace(clean_content, "")
         new_source = re.sub(r"\n{3,}", "\n\n", new_source).rstrip() + "\n"
 
         tx = MemoryTransaction(target)
