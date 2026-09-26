@@ -1422,5 +1422,17 @@ class MemoryCoreTests(unittest.TestCase):
         self.assertIn("- **[Alpha]**: first.\n- **[Gamma]**: third.", after)
 
 
+    def test_detect_conflict_matches_title_used_as_heading(self):
+        existing = "# Topic\n\n## Billing Engine\n\n- Handles invoices.\n"
+        kind, _ = memory.detect_duplicate_or_conflict(
+            existing, "Billing Engine", "- Billing Engine now handles refunds."
+        )
+        self.assertEqual(kind, "conflict")
+        kind, _ = memory.detect_duplicate_or_conflict(
+            existing, "Search Service", "- New search entry."
+        )
+        self.assertIsNone(kind)
+
+
 if __name__ == "__main__":
     unittest.main()

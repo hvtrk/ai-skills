@@ -487,7 +487,7 @@ def detect_duplicate_or_conflict(
         if clean_title:
             escaped = re.escape(clean_title)
             title_pattern = re.compile(
-                rf"(?:\[{escaped}\]|\*\*{escaped}\*\*|#{1, 6}\s+{escaped})",
+                rf"(?:\[{escaped}\]|\*\*{escaped}\*\*|#{{1,6}}\s+{escaped})",
                 re.IGNORECASE,
             )
             if title_pattern.search(target_content):
