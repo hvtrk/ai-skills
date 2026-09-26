@@ -1362,5 +1362,65 @@ class MemoryCoreTests(unittest.TestCase):
         self.assertIn("modified_files", parsed)
 
 
+    def test_insert_into_topic_places_content_under_named_section(self):
+        original = (
+            "# Title\n\n"
+            "## First Section\n\n- existing first\n\n"
+            "## Second Section\n\n- existing second\n"
+        )
+        result = memory.insert_into_topic(original, "- inserted", "First Section")
+        self.assertLess(result.index("- inserted"), result.index("## Second Section"))
+        self.assertGreater(result.index("- inserted"), result.index("- existing first"))
+
+    def test_update_with_section_inserts_before_next_heading(self):
+        memory.initialize(self.project, self.templates, repair=False, dry_run=False)
+        plan = {
+            "operation": "update",
+            "topic": "architecture",
+            "section": "Key Architectural Decisions",
+            "content": "- **[ADR-9999 Placement Probe]**: Must land in this section.",
+        }
+        plan_file = Path(self.temp_dir.name) / "section_plan.json"
+        plan_file.write_text(json.dumps(plan), encoding="utf-8")
+
+        code, _ = memory.update_memory(
+            self.project, None, memory.load_input_payload(str(plan_file))
+        )
+        self.assertEqual(code, memory.EXIT_OK)
+        content = (self.project / ".memory" / "architecture.md").read_text(
+            encoding="utf-8"
+        )
+        entry = content.index("ADR-9999 Placement Probe")
+        self.assertGreater(entry, content.index("## Key Architectural Decisions"))
+        self.assertLess(entry, content.index("## Permanent Design Invariants"))
+
+    def test_archive_does_not_leave_blank_line_between_list_items(self):
+        memory.initialize(self.project, self.templates, repair=False, dry_run=False)
+        domain_file = self.project / ".memory" / "domain.md"
+        entries = "- **[Alpha]**: first.\n- **[Beta]**: second.\n- **[Gamma]**: third."
+        domain_file.write_text(
+            domain_file.read_text(encoding="utf-8").rstrip() + "\n\n" + entries + "\n",
+            encoding="utf-8",
+        )
+        archive_plan = {
+            "operation": "archive",
+            "source_topic": "domain",
+            "title": "Beta retired",
+            "content": "- **[Beta]**: second.",
+            "superseded_by": "ADR-0002",
+            "archive_date": "2026-09-26",
+        }
+        af = Path(self.temp_dir.name) / "archive_beta.json"
+        af.write_text(json.dumps(archive_plan), encoding="utf-8")
+
+        code, _ = memory.archive_memory(
+            self.project, None, memory.load_input_payload(str(af))
+        )
+        self.assertEqual(code, memory.EXIT_OK)
+        after = domain_file.read_text(encoding="utf-8")
+        self.assertNotIn("[Beta]", after)
+        self.assertIn("- **[Alpha]**: first.\n- **[Gamma]**: third.", after)
+
+
 if __name__ == "__main__":
     unittest.main()
